@@ -1,0 +1,22 @@
+serial_ports:
+  - name: COM44
+    description: WCH USB-SERIAL Ch A
+    baudrate: 9600
+    timeout: 1
+    db_id: 1
+  - name: COM45
+    description: WCH USB-SERIAL Ch C
+    baudrate: 9600
+    timeout: 1
+    db_id: 2
+  - name: COM50
+    description: WCH USB-SERIAL Ch D
+    baudrate: 9600
+    timeout: 1
+    db_id: 3
+tcp_server:
+  buffer_size: 4096
+  host: 192.168.196.206
+  max_bytes_per_request: 1024
+  max_connections: 5
+  port: 8889
