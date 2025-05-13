@@ -10,7 +10,9 @@ def handle_client(client_socket, client_address):
             if not data:
                 break
             res = conpress_data(data)
-            client_socket.sendall(res.encode('utf-8'))
+            hex_values = res.split()
+            binary_data = bytes([int(h, 16) for h in hex_values])
+            client_socket.sendall(binary_data)
         except Exception as e:
             print(f"Error: {e}")
             break
@@ -44,7 +46,8 @@ def conpress_data(message):
     """
     处理接收到的数据
     """
-    return f"处理完成: {message}"
+    res = "1F 03 3A 00 00 00 00 00 00 00 00 00 00 00 08 02 28 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 34 00 00 00 00 00 00 00 00 00 00 03 24 00 00 00 00 00 00 00 00 00 00 00 00 46 A8"
+    return res
 
 if __name__ == "__main__":
     start_serve()
