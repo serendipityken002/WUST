@@ -30,23 +30,47 @@
 
 1 前端发送的json请求
 请求格式：
-{
-    "serial_port": "COM50",
-    "slave_address": 1,
-    "function_code": 3,
-    "start_register": 2,
-    "register_count": 4
+```python
+json_data = {
+    'serial': 'COM 50',
+    'slave_adress': '1',
+    'function_code': '3',
+    'start_address': '2',
+    'quantity': '4',
 }
+```
 
 2 后端发送数据给串口服务器
 
 2.1 发送所有需要连接的串口给串口服务器，让其创建串口对象
 数据格式如下：
-[{"name": "COM44", "description": "WCH USB-SERIAL Ch A", "baudrate": 9600, "timeout": 1, "db_id": 1}, {"name": "COM45", "description": "WCH USB-SERIAL Ch C", "baudrate": 9600, "timeout": 1, "db_id": 2}, {"name": "COM50", "description": "WCH USB-SERIAL Ch D", "baudrate": 9600, "timeout": 1, "db_id": 3}]
+```bash
+[
+{"name": "COM44", "description": "WCH USB-SERIAL Ch A", "baudrate": 9600, "timeout": 1, "db_id": 1}, 
+{"name": "COM45", "description": "WCH USB-SERIAL Ch C", "baudrate": 9600, "timeout": 1, "db_id": 2}, 
+{"name": "COM50", "description": "WCH USB-SERIAL Ch D", "baudrate": 9600, "timeout": 1, "db_id": 3}
+]
+```
 
 2.2 接收前端JSON命令，将其解析为modbus帧，存入发送队列后即可发给后端服务器
 数据格式如下：
-COM 50:010300020004e5c9
-其中，冒号前面是串口名，后面是modbus帧
+```python
+data = json.dumps({
+    'serial': serial,
+    'request': request,
+    'time': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+})
+```
 
 2.3 接收串口服务器返回的modbus帧，按字节存入接收队列
+串口服务器返回数据：
+data = json.dumps({
+    "serial": serial,
+    "request": request,
+    "response": response,
+    "time": time
+})
+
+### 问题
+1 串口服务器如何处理数据？
+串口的连接是在串口服务器实现的，也就是后端发给串口服务器的数据一定是要携带串口名的。同样，串口服务器返回时也不能仅返回modbus帧，也要携带串口名。那该如何设计缓冲队列？之前能按字节存储是每个串口都有自己的队列，这样才会不需要携带串口名。

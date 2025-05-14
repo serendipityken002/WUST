@@ -1,15 +1,15 @@
 serial_ports:
-  - name: COM44
+  - name: COM 44
     description: WCH USB-SERIAL Ch A
     baudrate: 9600
     timeout: 1
     db_id: 1
-  - name: COM45
+  - name: COM 45
     description: WCH USB-SERIAL Ch C
     baudrate: 9600
     timeout: 1
     db_id: 2
-  - name: COM50
+  - name: COM 50
     description: WCH USB-SERIAL Ch D
     baudrate: 9600
     timeout: 1

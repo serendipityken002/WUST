@@ -1,16 +1,14 @@
 import socket
 import threading
 import time
-import logging
 import queue
 import os
 import sys
 import yaml
 import json
 
-# 配置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from Logger import logger
+from process_data import DataProcessor
 
 # 全局变量
 client_socket = None
@@ -41,7 +39,7 @@ def load_config():
     with open(config_path, 'r', encoding='utf-8') as file:
         return yaml.safe_load(file)
 
-def conpress_database(host='127.0.0.1', port=8889):
+def connect_database(host='127.0.0.1', port=8889):
     """
     连接到数据库
     """
@@ -156,7 +154,16 @@ def send_data(data):
     request = bytes.fromhex(request)
     crc = calculate_crc(request)
     request += crc
-    data = f"{serial}:{request.hex()}"
+
+    # 将bytes转换为十六进制字符串，使其可以被JSON序列化
+    request_hex = ' '.join(f'{b:02X}' for b in request)
+
+    # 发送json格式的内容
+    data = json.dumps({
+        "serial": serial,
+        "request": request_hex,
+        "time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
+    })
     send_queue.put(data)
     return data
 
@@ -185,18 +192,16 @@ def receive_thread():
     global client_socket, is_connected
     while is_connected:
         try:
-            data = client_socket.recv(1024)
+            data_str = client_socket.recv(1024).decode('utf-8')
+            data = json.loads(data_str)
             if not data:
                 logger.warning("服务器已断开连接")
                 break
             
             # 记录接收到的数据
-            logger.info(f"接收到数据: {data.hex(' ').upper()}")
+            logger.info(f"接收到数据: {data}")
             
-            # 按字节依次存储到队列中
-            for byte in data:
-                # 直接存储整数值，而不是十六进制字符串
-                receive_queue.put(byte)
+            receive_queue.put(data)
         except Exception as e:
             logger.error(f"接收失败: {e}")
             disconnect()
@@ -295,9 +300,32 @@ def get_complete_frames(receive_queue, number_of_frames=1):
 
     return frames
 
-def get_front_json():
+def parse_one_data(db):
+    """
+    解析接收到的数据
+    """
+    try:
+        data = receive_queue.get(timeout=1)
+        response = data.get('response')
+        dp._parse_response(response)
+        
+    except queue.Empty:
+        # 队列为空
+        logger.warning("接收队列为空，无法解析数据")
+    except Exception as e:
+        logger.error(f"解析数据失败: {e}")
+
+
+def send_one_json():
     """获取前端json数据"""
-    data = 'COM 50', '1', '3', '2', '4'
+    json_data = {
+        'serial': 'COM 45',
+        'slave_adress': '1',
+        'function_code': '3',
+        'start_address': '2',
+        'quantity': '4',
+    }
+    data = json_data['serial'], json_data['slave_adress'], json_data['function_code'], json_data['start_address'], json_data['quantity']
     send_data(data)
 
 # 使用示例
@@ -307,13 +335,11 @@ if __name__ == "__main__":
         try:
             # 保持程序运行
             init_serial()
+            dp = DataProcessor()
             while is_server_connected():
                 time.sleep(1)
-                get_front_json()
-
-                # 获取完整帧
-                frames = get_complete_frames(receive_queue, number_of_frames=1)
-                print(f"获取到的完整帧: {frames}")
+                send_one_json()
+                parse_one_data(dp)
 
         finally:
             # 断开连接
