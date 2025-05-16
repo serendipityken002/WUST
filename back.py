@@ -349,6 +349,27 @@ def parse_one_data(dp):
     except Exception as e:
         logger.error(f"解析数据失败: {e}")
 
+def parse_all_data(dp):
+    """
+    解析接收到的所有数据
+    """
+    while not receive_queue.empty():
+        try:
+            data = receive_queue.get(timeout=1)
+            if data['status'] != 'success':
+                # 无需解析的数据
+                continue
+            serial = data.get('serial')
+            response = data.get('response')
+            data = dp.test_parse(serial, response)
+            logger.info(f"解析数据: {json.loads(data)}")
+            data_send_queue.put(data)
+            
+        except queue.Empty:
+            # 队列为空
+            logger.info("完成一轮数据解析")
+        except Exception as e:
+            logger.error(f"解析数据失败: {e}")
 
 def send_one_json():
     """获取前端json数据"""
@@ -401,6 +422,7 @@ if __name__ == "__main__":
         try:
             # 初始化串口
             init_serial()
+            # 创建数据解析器实例
             dp = DataProcessor()
             
             # 加载命令列表
@@ -413,9 +435,8 @@ if __name__ == "__main__":
                 # 发送命令列表
                 send_json_list(json_data_list)
                 # 解析接收到的数据
-                parse_one_data(dp)
-                parse_one_data(dp)
-                parse_one_data(dp)
+                # parse_one_data(dp)
+                parse_all_data(dp)
 
         finally:
             # 断开连接
