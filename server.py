@@ -185,7 +185,7 @@ def process_serial_ports(serial_ports):
     
     # 返回初始化成功响应
     return json.dumps({
-        "status": "success",
+        "status": "serial_success",
         "message": f"已初始化 {len(updated_ports)} 个串口",
         "initialized_ports": [port["name"] for port in updated_ports]
     })

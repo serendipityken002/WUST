@@ -13,13 +13,15 @@ from process_data import DataProcessor
 # 全局变量
 client_socket = None
 is_connected = False
-socket_lock = threading.Lock()
-send_queue = queue.Queue()
-receive_queue = queue.Queue()
-data_queue = queue.Queue()
-
 db_socket = None
 db_connected = False
+socket_lock = threading.Lock()
+
+# 队列
+send_queue = queue.Queue()         # 服务器发送队列
+receive_queue = queue.Queue()      # 服务器接收队列
+data_send_queue = queue.Queue()    # 数据库发送队列
+data_receive_queue = queue.Queue() # 数据库接收队列
 
 def load_config():
     # 首先尝试读取外部配置文件
@@ -40,106 +42,141 @@ def load_config():
     with open(config_path, 'r', encoding='utf-8') as file:
         return yaml.safe_load(file)
 
-def connect_database(host='127.0.0.1', port=8889):
+def tcp_send_thread(socket_obj, connected_flag, queue_obj, conn_type="服务器"):
     """
-    连接到数据库
+    通用TCP发送线程
+    
+    Args:
+        socket_obj: Socket对象引用
+        connected_flag: 连接状态标志引用
+        queue_obj: 消息队列
+        conn_type: 连接类型描述
     """
-    global db_socket, db_connected
-    try:
-        # 创建TCP套接字
-        db_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        db_socket.connect((host, port))
-        db_connected = True
-        
-        # 启动发送线程
-        heartbeat_thread = threading.Thread(target=db_send_thread)
-        heartbeat_thread.daemon = True
-        heartbeat_thread.start()
+    while globals()[connected_flag]:
+        try:
+            data = queue_obj.get(timeout=1)
+            globals()[socket_obj].sendall(data.encode('utf-8'))
+            time.sleep(0.1)
+        except queue.Empty:
+            # 队列为空，继续循环
+            continue
+        except Exception as e:
+            logger.error(f"{conn_type}发送失败: {e}")
+            disconnect_socket(socket_obj, connected_flag)
+            break
 
-        # 启动接收线程
-        heartbeat_thread = threading.Thread(target=db_receive_thread)
-        heartbeat_thread.daemon = True
-        heartbeat_thread.start()
-        
-        logger.info(f"成功连接到服务器 {host}:{port}")
-        return True
-    except Exception as e:
-        logger.error(f"连接服务器失败: {e}")
-        if db_socket:
-            db_socket.close()
-        db_socket = None
-        db_connected = False
-        return False
-
-def connect_server(host='127.0.0.1', port=8888):
+def tcp_receive_thread(socket_obj, connected_flag, queue_obj, conn_type="服务器"):
     """
-    连接到服务器
+    通用TCP接收线程
+    
+    Args:
+        socket_obj: Socket对象引用
+        connected_flag: 连接状态标志引用
+        queue_obj: 消息队列
+        conn_type: 连接类型描述
+    """
+    while globals()[connected_flag]:
+        try:
+            data_str = globals()[socket_obj].recv(1024).decode('utf-8')
+            data = json.loads(data_str)
+            if not data:
+                logger.warning(f"{conn_type}已断开连接")
+                break
+            
+            # 记录接收到的数据
+            logger.info(f"接收到{conn_type}数据: {data}")
+            
+            queue_obj.put(data)
+        except Exception as e:
+            logger.error(f"{conn_type}接收失败: {e}")
+            disconnect_socket(socket_obj, connected_flag)
+            break
+
+def connect_tcp(host, port, socket_obj, connected_flag, send_queue, receive_queue, conn_type="服务器"):
+    """
+    通用TCP连接函数
     
     Args:
         host: 服务器主机地址
         port: 服务器端口
+        socket_obj: Socket变量名（字符串）
+        connected_flag: 连接状态标志变量名（字符串）
+        send_queue: 发送队列
+        receive_queue: 接收队列
+        conn_type: 连接类型描述
     
     Returns:
         bool: 连接是否成功
     """
-    global client_socket, is_connected
-    
     try:
         # 创建TCP套接字
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((host, port))
-        is_connected = True
+        new_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        new_socket.connect((host, port))
+        globals()[socket_obj] = new_socket
+        globals()[connected_flag] = True
         
         # 启动发送线程
-        heartbeat_thread = threading.Thread(target=send_thread)
-        heartbeat_thread.daemon = True
-        heartbeat_thread.start()
+        send_thread_obj = threading.Thread(
+            target=tcp_send_thread, 
+            args=(socket_obj, connected_flag, send_queue, conn_type)
+        )
+        send_thread_obj.daemon = True
+        send_thread_obj.start()
 
         # 启动接收线程
-        heartbeat_thread = threading.Thread(target=receive_thread)
-        heartbeat_thread.daemon = True
-        heartbeat_thread.start()
+        receive_thread_obj = threading.Thread(
+            target=tcp_receive_thread, 
+            args=(socket_obj, connected_flag, receive_queue, conn_type)
+        )
+        receive_thread_obj.daemon = True
+        receive_thread_obj.start()
         
-        logger.info(f"成功连接到服务器 {host}:{port}")
+        logger.info(f"成功连接到{conn_type} {host}:{port}")
         return True
     except Exception as e:
-        logger.error(f"连接服务器失败: {e}")
-        if client_socket:
-            client_socket.close()
-        client_socket = None
-        is_connected = False
+        logger.error(f"连接{conn_type}失败: {e}")
+        if globals().get(socket_obj):
+            globals()[socket_obj].close()
+        globals()[socket_obj] = None
+        globals()[connected_flag] = False
         return False
+
+def disconnect_socket(socket_obj, connected_flag):
+    """
+    断开与服务器的连接
+    
+    Args:
+        socket_obj: Socket变量名（字符串）
+        connected_flag: 连接状态标志变量名（字符串）
+    """
+    if globals().get(socket_obj):
+        try:
+            globals()[socket_obj].close()
+        except Exception as e:
+            logger.error(f"关闭连接错误: {e}")
+        finally:
+            globals()[socket_obj] = None
+            globals()[connected_flag] = False
+            logger.info(f"已断开连接")
+
+# 保持向后兼容的函数
+def connect_server(host='127.0.0.1', port=8888):
+    """
+    连接到服务器（保持兼容）
+    """
+    return connect_tcp(host, port, 'client_socket', 'is_connected', send_queue, receive_queue, "服务器")
+
+def connect_database(host='127.0.0.1', port=8889):
+    """
+    连接到数据库（保持兼容）
+    """
+    return connect_tcp(host, port, 'db_socket', 'db_connected', data_send_queue, data_receive_queue, "数据库")
 
 def disconnect():
     """
-    断开与服务器的连接
+    断开与服务器的连接（保持兼容）
     """
-    global client_socket, is_connected
-    
-    if client_socket:
-        try:
-            client_socket.close()
-        except Exception as e:
-            logger.error(f"关闭连接错误: {e}")
-        finally:
-            client_socket = None
-            is_connected = False
-            logger.info("已断开与服务器的连接")
-
-def disconnect(socket, connected):
-    """
-    断开与服务器的连接
-    """
-    
-    if socket:
-        try:
-            socket.close()
-        except Exception as e:
-            logger.error(f"关闭连接错误: {e}")
-        finally:
-            socket = None
-            connected = False
-            logger.info("已断开与服务器的连接")
+    disconnect_socket('client_socket', 'is_connected')
 
 def is_server_connected():
     """
@@ -149,6 +186,15 @@ def is_server_connected():
         bool: 是否已连接
     """
     return is_connected and client_socket is not None
+
+def is_database_connected():
+    """
+    检查是否已连接到数据库
+    
+    Returns:
+        bool: 是否已连接
+    """
+    return db_connected and db_socket is not None
 
 def calculate_crc(data):
     """
@@ -189,124 +235,6 @@ def send_data(data):
     send_queue.put(data)
     return data
 
-def send_thread():
-    """
-    发送线程
-    """
-    global client_socket, is_connected
-    while is_connected:
-        try:
-            data = send_queue.get(timeout=1)
-            client_socket.sendall(data.encode('utf-8'))
-            time.sleep(0.1)
-        except queue.Empty:
-            # 队列为空，继续循环
-            continue
-        except Exception as e:
-            logger.error(f"发送失败: {e}")
-            disconnect()
-            break
-        
-def receive_thread():
-    """
-    接收线程，将接收的数据帧按字节存储到队列中
-    """
-    global client_socket, is_connected
-    while is_connected:
-        try:
-            data_str = client_socket.recv(1024).decode('utf-8')
-            data = json.loads(data_str)
-            if not data:
-                logger.warning("服务器已断开连接")
-                break
-            
-            # 记录接收到的数据
-            logger.info(f"接收到数据: {data}")
-            
-            receive_queue.put(data)
-        except Exception as e:
-            logger.error(f"接收失败: {e}")
-            disconnect()
-            break
-
-def db_send_thread():
-    """
-    发送线程
-    """
-    global db_socket, db_connected
-    while db_connected:
-        try:
-            data = data_queue.get(timeout=1)
-            db_socket.sendall(data.encode('utf-8'))
-            time.sleep(0.1)
-        except queue.Empty:
-            # 队列为空，继续循环
-            continue
-        except Exception as e:
-            logger.error(f"发送失败: {e}")
-            disconnect(db_socket)
-            break
-        
-def db_receive_thread():
-    """
-    接收线程，将接收的数据帧按字节存储到队列中
-    """
-    global db_socket, db_connected
-    while db_connected:
-        try:
-            data_str = db_socket.recv(1024).decode('utf-8')
-            data = json.loads(data_str)
-            if not data:
-                logger.warning("服务器已断开连接")
-                break
-            
-            # 记录接收到的数据
-            logger.info(f"接收到数据: {data}")
-            
-            data_queue.put(data)
-        except Exception as e:
-            logger.error(f"接收失败: {e}")
-            disconnect(db_socket)
-            break
-
-# def send_thread(socket, connected, myqueue):
-#     """
-#     发送线程
-#     """
-#     while connected:
-#         try:
-#             data = myqueue.get(timeout=1)
-#             socket.sendall(data.encode('utf-8'))
-#             time.sleep(0.1)
-#         except queue.Empty:
-#             # 队列为空，继续循环
-#             continue
-#         except Exception as e:
-#             logger.error(f"发送失败: {e}")
-#             disconnect(socket, connected)
-#             break
-        
-# def receive_thread(socket, connected, myqueue):
-#     """
-#     接收线程，将接收的数据帧按字节存储到队列中
-#     """
-#     while connected:
-#         try:
-#             data_str = socket.recv(1024).decode('utf-8')
-#             data = json.loads(data_str)
-#             if not data:
-#                 logger.warning("服务器已断开连接")
-#                 break
-            
-#             # 记录接收到的数据
-#             logger.info(f"接收到数据: {data}")
-            
-#             myqueue.put(data)
-#         except Exception as e:
-#             logger.error(f"接收失败: {e}")
-#             disconnect()
-#             break
-
 def init_serial():
     """
     初始化串口
@@ -334,7 +262,7 @@ def get_complete_frames(receive_queue, number_of_frames=1):
         number_of_frames: 需要读取的帧数
     Returns:
         list: 完整帧的列表，每个元素为十六进制字符串
-    """
+"""
     frames = []
     temp_bytes = []
     frame_size = 0
@@ -406,12 +334,14 @@ def parse_one_data(dp):
     """
     try:
         data = receive_queue.get(timeout=1)
+        if data['status'] != 'success':
+            # 无需解析的数据
+            return
         serial = data.get('serial')
         response = data.get('response')
         data = dp.test_parse(serial, response)
-        # print(data)
-        logger.info(f"解析数据: {data}")
-        data_queue.put(data)
+        logger.info(f"解析数据: {json.loads(data)}")
+        data_send_queue.put(data)
         
     except queue.Empty:
         # 队列为空
@@ -463,23 +393,37 @@ def send_json_list(json_data_list):
 
 # 使用示例
 if __name__ == "__main__":
-    # 连接服务器
-    if connect_server():
+    # 连接服务器和数据库
+    server_connected = connect_server()
+    db_connected = connect_database()
+    
+    if server_connected and db_connected:
         try:
-            # 保持程序运行
+            # 初始化串口
             init_serial()
             dp = DataProcessor()
+            
+            # 加载命令列表
             with open('cmd_list.json', 'r', encoding='utf-8') as file:
                 json_data_list = json.load(file)
-            while is_server_connected():
+                
+            # 主循环
+            while is_server_connected() and is_database_connected():
                 time.sleep(1)
-                # send_one_json()
+                # 发送命令列表
                 send_json_list(json_data_list)
+                # 解析接收到的数据
+                parse_one_data(dp)
                 parse_one_data(dp)
                 parse_one_data(dp)
 
         finally:
             # 断开连接
-            disconnect()
+            disconnect_socket('client_socket', 'is_connected')
+            disconnect_socket('db_socket', 'db_connected')
     else:
-        print("连接服务器失败，程序退出")
+        if not server_connected:
+            logger.error("连接服务器失败")
+        if not db_connected:
+            logger.error("连接数据库失败")
+        logger.error("程序退出")

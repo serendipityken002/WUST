@@ -119,7 +119,8 @@ class DataProcessor:
                     "高度": int.from_bytes(data_bytes[start_index+12:start_index+14], byteorder='big'),
                     "阀门开度": int.from_bytes(data_bytes[start_index+14:start_index+16], byteorder='big'),
                     "排风速": int.from_bytes(data_bytes[start_index+18:start_index+20], byteorder='big'),
-                    "面风速": round(int.from_bytes(data_bytes[start_index+16:start_index+18], byteorder='big') * 0.01, 2) # 面风速的单位是0.01m/s
+                    "面风速": round(int.from_bytes(data_bytes[start_index+16:start_index+18], byteorder='big') * 0.01, 2), # 面风速的单位是0.01m/s
+                    "解析时间": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
                 }
                 # hood_values = {
                 #     "info": name,
@@ -131,7 +132,7 @@ class DataProcessor:
                 #     "排风速": int.from_bytes(data_bytes[start_index+18:start_index+20], byteorder='big'),
                 #     "面风速": round(int.from_bytes(data_bytes[start_index+16:start_index+18], byteorder='big') * 0.01, 2) # 面风速的单位是0.01m/s
                 # }
-                return hood_values
+                return json.dumps(hood_values)
         except Exception as e:
             self.logger.error(f"通风柜数据解析错误: {e}\n{traceback.format_exc()}")
             return None
