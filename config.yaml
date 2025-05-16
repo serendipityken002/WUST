@@ -9,11 +9,6 @@ serial_ports:
     baudrate: 9600
     timeout: 1
     db_id: 2
-  - name: COM 50
-    description: WCH USB-SERIAL Ch D
-    baudrate: 9600
-    timeout: 1
-    db_id: 3
 tcp_server:
   buffer_size: 4096
   host: 192.168.196.206

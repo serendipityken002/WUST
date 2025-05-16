@@ -16,6 +16,7 @@ is_connected = False
 socket_lock = threading.Lock()
 send_queue = queue.Queue()
 receive_queue = queue.Queue()
+data_queue = queue.Queue()
 
 db_socket = None
 db_connected = False
@@ -51,8 +52,14 @@ def connect_database(host='127.0.0.1', port=8889):
         db_connected = True
         
         # 启动发送线程
+        heartbeat_thread = threading.Thread(target=db_send_thread)
+        heartbeat_thread.daemon = True
+        heartbeat_thread.start()
 
         # 启动接收线程
+        heartbeat_thread = threading.Thread(target=db_receive_thread)
+        heartbeat_thread.daemon = True
+        heartbeat_thread.start()
         
         logger.info(f"成功连接到服务器 {host}:{port}")
         return True
@@ -117,6 +124,21 @@ def disconnect():
         finally:
             client_socket = None
             is_connected = False
+            logger.info("已断开与服务器的连接")
+
+def disconnect(socket, connected):
+    """
+    断开与服务器的连接
+    """
+    
+    if socket:
+        try:
+            socket.close()
+        except Exception as e:
+            logger.error(f"关闭连接错误: {e}")
+        finally:
+            socket = None
+            connected = False
             logger.info("已断开与服务器的连接")
 
 def is_server_connected():
@@ -206,6 +228,84 @@ def receive_thread():
             logger.error(f"接收失败: {e}")
             disconnect()
             break
+
+def db_send_thread():
+    """
+    发送线程
+    """
+    global db_socket, db_connected
+    while db_connected:
+        try:
+            data = data_queue.get(timeout=1)
+            db_socket.sendall(data.encode('utf-8'))
+            time.sleep(0.1)
+        except queue.Empty:
+            # 队列为空，继续循环
+            continue
+        except Exception as e:
+            logger.error(f"发送失败: {e}")
+            disconnect(db_socket)
+            break
+        
+def db_receive_thread():
+    """
+    接收线程，将接收的数据帧按字节存储到队列中
+    """
+    global db_socket, db_connected
+    while db_connected:
+        try:
+            data_str = db_socket.recv(1024).decode('utf-8')
+            data = json.loads(data_str)
+            if not data:
+                logger.warning("服务器已断开连接")
+                break
+            
+            # 记录接收到的数据
+            logger.info(f"接收到数据: {data}")
+            
+            data_queue.put(data)
+        except Exception as e:
+            logger.error(f"接收失败: {e}")
+            disconnect(db_socket)
+            break
+
+# def send_thread(socket, connected, myqueue):
+#     """
+#     发送线程
+#     """
+#     while connected:
+#         try:
+#             data = myqueue.get(timeout=1)
+#             socket.sendall(data.encode('utf-8'))
+#             time.sleep(0.1)
+#         except queue.Empty:
+#             # 队列为空，继续循环
+#             continue
+#         except Exception as e:
+#             logger.error(f"发送失败: {e}")
+#             disconnect(socket, connected)
+#             break
+        
+# def receive_thread(socket, connected, myqueue):
+#     """
+#     接收线程，将接收的数据帧按字节存储到队列中
+#     """
+#     while connected:
+#         try:
+#             data_str = socket.recv(1024).decode('utf-8')
+#             data = json.loads(data_str)
+#             if not data:
+#                 logger.warning("服务器已断开连接")
+#                 break
+            
+#             # 记录接收到的数据
+#             logger.info(f"接收到数据: {data}")
+            
+#             myqueue.put(data)
+#         except Exception as e:
+#             logger.error(f"接收失败: {e}")
+#             disconnect()
+#             break
 
 def init_serial():
     """
@@ -300,14 +400,18 @@ def get_complete_frames(receive_queue, number_of_frames=1):
 
     return frames
 
-def parse_one_data(db):
+def parse_one_data(dp):
     """
     解析接收到的数据
     """
     try:
         data = receive_queue.get(timeout=1)
+        serial = data.get('serial')
         response = data.get('response')
-        dp._parse_response(response)
+        data = dp.test_parse(serial, response)
+        # print(data)
+        logger.info(f"解析数据: {data}")
+        data_queue.put(data)
         
     except queue.Empty:
         # 队列为空
@@ -328,6 +432,35 @@ def send_one_json():
     data = json_data['serial'], json_data['slave_adress'], json_data['function_code'], json_data['start_address'], json_data['quantity']
     send_data(data)
 
+def send_json_list(json_data_list):
+    """
+    发送多个JSON数据到服务器
+    包含不同设备的查询指令，循环发送
+    """
+    # 循环发送每个JSON数据
+    for i, json_data in enumerate(json_data_list):
+        try:
+            # 转换为元组格式
+            data = (
+                json_data['serial'], 
+                json_data['slave_adress'], 
+                json_data['function_code'], 
+                json_data['start_address'], 
+                json_data['quantity']
+            )
+            
+            # 发送数据
+            send_data(data)
+            
+            # 延时，避免发送过快
+            time.sleep(0.5)
+            
+        except Exception as e:
+            logger.error(f"发送第 {i+1} 个JSON数据失败: {e}")
+    
+    logger.info("所有JSON数据发送完成")
+    return len(json_data_list)
+
 # 使用示例
 if __name__ == "__main__":
     # 连接服务器
@@ -336,9 +469,13 @@ if __name__ == "__main__":
             # 保持程序运行
             init_serial()
             dp = DataProcessor()
+            with open('cmd_list.json', 'r', encoding='utf-8') as file:
+                json_data_list = json.load(file)
             while is_server_connected():
                 time.sleep(1)
-                send_one_json()
+                # send_one_json()
+                send_json_list(json_data_list)
+                parse_one_data(dp)
                 parse_one_data(dp)
 
         finally:

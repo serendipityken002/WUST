@@ -89,6 +89,53 @@ class DataProcessor:
         self.dataGen = DataGen()
         self.data = self.dataGen.data
         self.data_lock = threading.Lock()
+        self.info = {
+            "COM5": {
+                "01": "301通风柜",
+                "02": "302通风柜",
+            },
+            "COM6": {
+                "01": "201通风柜",
+                "02": "202通风柜",
+                "03": "204通风柜",
+                "04": "205通风柜",
+                "05": "206通风柜",
+            },
+        }
+
+    def test_parse(self, serial, response):
+        try:
+            data_bytes = bytes.fromhex(response.replace(" ", ""))
+            id = int(data_bytes[0])
+            name = self.info[serial][str(id).zfill(2)]
+            start_index = 3  # 跳过Modbus协议头
+            
+            if len(data_bytes) >= start_index + 52:  # 确保有足够的数据
+                hood_values = {
+                    "信息": name,
+                    "状态": bool(int.from_bytes(data_bytes[start_index+0:start_index+2], byteorder='big')),
+                    "开度": bool(int.from_bytes(data_bytes[start_index+6:start_index+8], byteorder='big')),
+                    "警告": int.from_bytes(data_bytes[start_index+10:start_index+12], byteorder='big'),
+                    "高度": int.from_bytes(data_bytes[start_index+12:start_index+14], byteorder='big'),
+                    "阀门开度": int.from_bytes(data_bytes[start_index+14:start_index+16], byteorder='big'),
+                    "排风速": int.from_bytes(data_bytes[start_index+18:start_index+20], byteorder='big'),
+                    "面风速": round(int.from_bytes(data_bytes[start_index+16:start_index+18], byteorder='big') * 0.01, 2) # 面风速的单位是0.01m/s
+                }
+                # hood_values = {
+                #     "info": name,
+                #     "status": bool(int.from_bytes(data_bytes[start_index+0:start_index+2], byteorder='big')),
+                #     "open": bool(int.from_bytes(data_bytes[start_index+6:start_index+8], byteorder='big')),
+                #     "warning": int.from_bytes(data_bytes[start_index+10:start_index+12], byteorder='big'),
+                #     "hight": int.from_bytes(data_bytes[start_index+12:start_index+14], byteorder='big'),
+                #     "阀门开度": int.from_bytes(data_bytes[start_index+14:start_index+16], byteorder='big'),
+                #     "排风速": int.from_bytes(data_bytes[start_index+18:start_index+20], byteorder='big'),
+                #     "面风速": round(int.from_bytes(data_bytes[start_index+16:start_index+18], byteorder='big') * 0.01, 2) # 面风速的单位是0.01m/s
+                # }
+                return hood_values
+        except Exception as e:
+            self.logger.error(f"通风柜数据解析错误: {e}\n{traceback.format_exc()}")
+            return None
+
 
     def _parse_response(self, response_hex: str):
         """解析响应数据
@@ -117,7 +164,7 @@ class DataProcessor:
                 self.parse_modbus_response_ventilation_hood(response_hex, "3F", device_id - 31)
             else:
                 self.logger.warning(f"未知的设备ID: {hex(device_id)}")
-            logger.info(f"解析: {device_id}")
+            # logger.info(f"解析: {device_id}")
             return self.data
             
         except Exception as e:
@@ -263,8 +310,30 @@ class DataProcessor:
                     "排风速": int.from_bytes(data_bytes[start_index+18:start_index+20], byteorder='big'),
                     "面风速": round(int.from_bytes(data_bytes[start_index+16:start_index+18], byteorder='big') * 0.01, 2) # 面风速的单位是0.01m/s
                 }
-                self.logger.info(f"通风柜数据: {hood_values}")
-
+                # self.logger.info(f"视窗高度解析之后: {hood_values['视窗高度']}")
+                
+                # 只在更新数据时短暂持有锁
+                if floor == "2F":
+                    floor_keys = list(self.data[floor]["First"].keys())
+                    with self.data_lock:
+                        if 0 <= hood_index < len(floor_keys):
+                            hood_key = floor_keys[hood_index]
+                            hood_data = self.data[floor]["First"][hood_key]
+                        
+                        for key, value in hood_values.items():
+                            hood_data[key]["value"] = value
+                        self.data[floor]["First"][hood_key] = hood_data
+                elif floor == "3F":
+                    floor_keys = list(self.data[floor].keys())
+                    with self.data_lock:
+                        if 0 <= hood_index < len(floor_keys):
+                            hood_key = floor_keys[hood_index]
+                            hood_data = self.data[floor][hood_key]
+                        
+                        for key, value in hood_values.items():
+                            hood_data[key]["value"] = value
+                        self.data[floor][hood_key] = hood_data
+                
                 return {"message": f"通风柜{hood_index + 1}数据更新成功"}
             else:
                 return {"message": "数据长度不足"}

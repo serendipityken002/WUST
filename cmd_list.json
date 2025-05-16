@@ -1,0 +1,23 @@
+[
+    {
+        "serial": "COM5",
+        "slave_adress": "1",
+        "function_code": "3",
+        "start_address": "2",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM5",
+        "slave_adress": "2",
+        "function_code": "3",
+        "start_address": "2",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM7",
+        "slave_adress": "1",
+        "function_code": "3",
+        "start_address": "2",
+        "quantity": "4"
+    }
+]
