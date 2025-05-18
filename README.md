@@ -1,3 +1,15 @@
+### 快速启动
+1. 运行串口服务器和数据库服务器
+```bash
+python server.py
+python sb_test.py
+```
+
+2. 运行后端
+```bash
+python back.py
+```
+
 ### 明确项目模块职责划分
 
 1 后端
