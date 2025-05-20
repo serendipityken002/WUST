@@ -17,17 +17,29 @@ class LevelFilter(logging.Filter):
 class LogUtils:
 
     def __init__(self, base_log_path="logs"):
-        # 获取当前时间，并使用它来创建一个唯一的目录名
-        timestamp = time.strftime('%Y_%m_%d_%H_%M_%S') + "_logs"
-        self.logfile_path = os.path.join(base_log_path, timestamp)
+        # 创建分级目录结构
+        current_time = time.localtime()
+        
+        # 第一级目录 - 年月日 (YYYY_MM_DD)
+        date_dir = time.strftime('%Y_%m_%d', current_time)
+        
+        # 第二级目录 - 小时 (HH)
+        hour_dir = time.strftime('%H', current_time)
+        
+        # 完整日志路径
+        self.logfile_path = os.path.join(base_log_path, date_dir, hour_dir)
 
-        # 检查并创建日志目录
+        # 检查并创建日志目录结构
         if not os.path.exists(self.logfile_path):
             os.makedirs(self.logfile_path)
 
         # 创建日志对象logger
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)  # 设置最低日志级别为DEBUG
+        
+        # 防止日志重复
+        if self.logger.handlers:
+            self.logger.handlers.clear()
 
         # 定义日志格式
         formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
@@ -43,7 +55,7 @@ class LogUtils:
 
         for level_name, file_prefix in log_levels.items():
             level = getattr(logging, level_name)
-            # 创建日志文件路径
+            # 创建日志文件路径 (第三级 - 文件)
             log_file = os.path.join(self.logfile_path, f"{file_prefix}.log")
             # 创建并配置handler
             handler = RotatingFileHandler(log_file, maxBytes=1024*1024, backupCount=5, encoding='utf-8')
@@ -93,10 +105,3 @@ if __name__ == "__main__":
         logger.error("捕获到异常:\n%s", error_info)
     logger.info({"error":1})
     logger.error('error')
-
-
- 
-    
- 
-
-    

@@ -1,3 +1,23 @@
+tcp_server:
+  buffer_size: 4096
+  host: 192.168.196.206
+  max_bytes_per_request: 1024
+  max_connections: 5
+  port: 8889
+
+# 服务器配置
+server:
+  host: 127.0.0.1
+  port: 8888
+
+# RESTful API配置
+api:
+  base_url: http://127.0.0.1:5000/api
+  timeout: 10
+  poll_interval: 5
+  long_poll_timeout: 30
+
+# 串口配置
 serial_ports:
   - name: COM 44
     description: WCH USB-SERIAL Ch A
@@ -9,9 +29,7 @@ serial_ports:
     baudrate: 9600
     timeout: 1
     db_id: 2
-tcp_server:
-  buffer_size: 4096
-  host: 192.168.196.206
-  max_bytes_per_request: 1024
-  max_connections: 5
-  port: 8889
+
+# Modbus配置
+modbus:
+  request_delay: 0.5
