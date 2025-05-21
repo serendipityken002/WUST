@@ -98,7 +98,8 @@ def process_data(data_str):
             return process_serial_ports(data)
         elif isinstance(data, dict) and "serial" in data and "request" in data:
             # 是Modbus请求
-            return process_modbus_request(data)
+            # return process_modbus_request(data)
+            return test_response(data)
         else:
             # 未知数据格式
             return json.dumps({
@@ -243,6 +244,18 @@ def process_modbus_request(request_data):
         "serial": serial,
         "request": request_hex,
         "response": response_hex,
+        "time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+    })
+
+def test_response(request_data):
+    """
+    模拟串口返回数据
+    """
+    return json.dumps({
+        "status": "success",
+        "serial": serial,
+        "request": "01 03 00 02 00 1D 24 03",
+        "response": "01 03 3A 00 00 00 00 02 2B 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 59 D7",
         "time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
     })
 

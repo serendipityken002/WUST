@@ -8,6 +8,7 @@ import yaml
 import json
 import requests
 from urllib3.exceptions import InsecureRequestWarning
+from flask import Flask, request, jsonify
 
 # 禁用不安全请求警告
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -155,132 +156,68 @@ class TCPClient:
                 self.disconnect()
                 break
 
-class RESTfulClient:
-    """RESTful API客户端类
+class APIService:
+    """API服务类，封装Flask应用和路由处理"""
     
-    主要用于发送数据到API服务器并接收响应
-    """
-    
-    def __init__(self, base_url='http://127.0.0.1:5000/api', timeout=10):
-        """初始化RESTful API客户端
+    def __init__(self, host='0.0.0.0', port=5000, data_manager=None):
+        """初始化API服务
         
         Args:
-            base_url: API基础URL，默认为http://127.0.0.1:5000/api
-            timeout: 请求超时时间，单位秒，默认为10
+            host: 服务器主机，默认为0.0.0.0
+            port: 服务器端口，默认为5000
+            data_manager: 数据管理器实例
         """
-        self.base_url = base_url
-        self.timeout = timeout
-        self.session = None
-        self.is_connected = False
+        self.app = Flask(__name__)
+        self.host = host
+        self.port = port
+        self.data_manager = data_manager
+        
+        # 注册API蓝图
+        self._register_routes()
     
-    def connect(self):
-        """连接到RESTful API服务器
+    def _register_routes(self):
+        """注册API路由"""
+        # 健康检查
+        @self.app.route('/health', methods=['GET'])
+        def health_check():
+            return jsonify({
+                "status": "ok", 
+                "time": time.strftime('%Y-%m-%d %H:%M:%S')
+            })
         
-        Returns:
-            bool: 连接是否成功
-        """
-        try:
-            # 创建会话对象以复用连接
-            self.session = requests.Session()
-            
-            # 测试连接
-            response = self.session.get(f"{self.base_url}/health", timeout=self.timeout)
-            if response.status_code == 200:
-                self.is_connected = True
-                logger.info(f"成功连接到RESTful API: {self.base_url}")
-                return True
-            else:
-                logger.error(f"API连接测试失败: {response.status_code}")
-                return False
-        except requests.RequestException as e:
-            logger.error(f"连接RESTful API失败: {e}")
-            self.is_connected = False
-            return False
+        # 根据COM口和ID获取设备信息
+        @self.app.route('/com/<com>/id/<id>', methods=['GET'])
+        def get_device_info(com, id):
+            """根据COM口和ID获取设备信息"""
+            res = self.data_manager.get_comid_data(com, id)
+            return jsonify(res)
+        
+        @self.app.route('data', methods=['POST'])
+        def get_data():
+            """依次获取后端解析的单个数据，作为历史数据存储到数据库"""
+            pass
     
-    def disconnect(self):
-        """断开与RESTful API的连接"""
-        if self.session:
-            self.session.close()
-            self.session = None
-        
-        self.is_connected = False
-        logger.info("已断开RESTful API连接")
+    def run(self, debug=False, use_reloader=False):
+        """运行API服务器"""
+        logger.info(f"启动API服务器 {self.host}:{self.port}")
+        return self.app.run(
+            host=self.host,
+            port=self.port,
+            debug=debug,
+            use_reloader=use_reloader
+        )
     
-    def is_connected_status(self):
-        """检查是否已连接到RESTful API
-        
-        Returns:
-            bool: 是否已连接
-        """
-        return self.is_connected and self.session is not None
-    
-    def send_data(self, data, endpoint="/data"):
-        """发送数据到RESTful API
-        
-        Args:
-            data: 要发送的JSON数据
-            endpoint: API端点路径，默认为/data
-            
-        Returns:
-            dict: API响应数据，失败时返回None
-        """
-        if not self.is_connected_status():
-            logger.error("未连接到RESTful API")
-            return None
-        
-        try:
-            url = f"{self.base_url}{endpoint}"
-            response = self.session.post(
-                url, 
-                json=data,
-                timeout=self.timeout
-            )
-            
-            if response.status_code in (200, 201):
-                logger.info(f"成功发送数据到API({url}): {data}")
-                return response.json()
-            else:
-                logger.error(f"发送数据失败: {response.status_code}, {response.text}")
-                return None
-        except requests.RequestException as e:
-            logger.error(f"API请求出错: {e}")
-            return None
-    
-    def receive_data(self, endpoint="/receive", params=None):
-        """从RESTful API接收数据
-        
-        Args:
-            endpoint: API接收端点路径，默认为/receive
-            params: 请求参数，默认为None
-            
-        Returns:
-            dict: 接收到的数据，失败时返回None
-        """
-        if not self.is_connected_status():
-            logger.error("未连接到RESTful API")
-            return None
-        
-        try:
-            url = f"{self.base_url}{endpoint}"
-            response = self.session.get(
-                url,
-                params=params,
-                timeout=self.timeout
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                logger.info(f"成功从API({url})接收数据")
-                return data
-            elif response.status_code == 204:
-                logger.debug("API返回空数据")
-                return None
-            else:
-                logger.error(f"接收数据失败: {response.status_code}, {response.text}")
-                return None
-        except requests.RequestException as e:
-            logger.error(f"API请求出错: {e}")
-            return None
+    def run_in_thread(self):
+        """在线程中运行API服务器"""
+        thread = threading.Thread(
+            target=self.run,
+            kwargs={"debug": False, "use_reloader": False}
+        )
+        thread.daemon = True
+        thread.start()
+        logger.info(f"API服务器已在后台运行 {self.host}:{self.port}")
+        return True
+
 
 class ModbusHelper:
     """Modbus助手类，处理Modbus相关功能"""
@@ -312,12 +249,12 @@ class ModbusHelper:
 class DeviceManager:
     """设备管理器类，处理设备通信和数据处理"""
     
-    def __init__(self, tcp_client, api_client, config):
+    def __init__(self, tcp_client, api_client, config, data_processor):
         """初始化设备管理器"""
         self.tcp_client = tcp_client
         self.api_client = api_client
         self.config = config
-        self.data_processor = DataProcessor()
+        self.data_processor = data_processor
     
     def init_serial(self):
         """初始化串口"""
@@ -397,7 +334,7 @@ class DeviceManager:
                 logger.info(f"解析数据: {data_json}")
                 
                 # 发送到RESTful API
-                self.api_client.send_data(data_json)
+                # self.api_client.send_data(data_json)
                 
             except queue.Empty:
                 # 队列为空
@@ -422,27 +359,32 @@ class Application:
             port=server_config.get('port', 8888)
         )
         
-        # 创建RESTful API客户端
+        # 导入数据处理器
+        self.data_processor = DataProcessor()
+
+        # 创建API服务端
         api_config = self.config.get('api', {})
-        self.api_client = RESTfulClient(
-            base_url=api_config.get('base_url', 'http://127.0.0.1:5000/api'),
-            timeout=api_config.get('timeout', 10)
+        self.api_server = APIService(
+            host=api_config.get('host', '0.0.0.0'),
+            port=api_config.get('port', 5000),
+            data_manager=self.data_processor
         )
-        
+
         # 创建设备管理器
         self.device_manager = DeviceManager(
             self.tcp_client,
             self.api_client,
-            self.config
+            self.config,
+            self.data_processor
         )
     
     def run(self):
         """运行应用"""
         # 连接服务器和RESTful API
         server_connected = self.tcp_client.connect()
-        api_connected = self.api_client.connect()
+        api_server = self.api_server.run_in_thread()
         
-        if server_connected and api_connected:
+        if server_connected and api_server:
             try:
                 # 初始化串口
                 self.device_manager.init_serial()
@@ -452,7 +394,7 @@ class Application:
                     json_data_list = json.load(file)
                     
                 # 主循环
-                while self.tcp_client.is_connected_status() and self.api_client.is_connected_status():
+                while self.tcp_client.is_connected_status():
                     time.sleep(1)
                     # 发送命令列表
                     self.device_manager.send_json_list(json_data_list)
@@ -462,11 +404,10 @@ class Application:
             finally:
                 # 断开连接
                 self.tcp_client.disconnect()
-                self.api_client.disconnect()
         else:
             if not server_connected:
                 logger.error("连接服务器失败")
-            if not api_connected:
+            if not api_server:
                 logger.error("连接RESTful API失败")
             logger.error("程序退出")
 

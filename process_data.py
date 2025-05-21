@@ -53,31 +53,24 @@ class DataGen:
     def _initialize_data(self):
         """初始化完整的数据结构"""
         return {
-            "2F": {
-                "First":{
-                    "201通风柜": self._create_ventilation_hood(),
-                    "202通风柜": self._create_ventilation_hood(),
-                    "204通风柜": self._create_ventilation_hood(),
-                    "205通风柜": self._create_ventilation_hood(),
-                    "206通风柜": self._create_ventilation_hood(),
-                    "排风机": self._create_exhaust_fan()
-                },
-                "Second":{
-                    "更衣室": self._create_clean_room(),
-                    "缓冲间": self._create_clean_room(),
-                    "洁净走廊": self._create_clean_room(),
-                    "生物医学实验室2": self._create_clean_room(),
-                    "生物医学实验室1": self._create_clean_room(),
-                }
-            },
-            "3F": {
-                "307通风柜1": self._create_ventilation_hood(),
-                "307通风柜2": self._create_ventilation_hood(),
-                "307通风柜3": self._create_ventilation_hood(),
-                "307通风柜4": self._create_ventilation_hood(),
-                "305通风柜": self._create_ventilation_hood(),
-                "304通风柜": self._create_ventilation_hood(),
+            "通风柜": {
+                "201通风柜": self._create_ventilation_hood(),
+                "202通风柜": self._create_ventilation_hood(),
+                "204通风柜": self._create_ventilation_hood(),
+                "205通风柜": self._create_ventilation_hood(),
+                "206通风柜": self._create_ventilation_hood(),
+                "301通风柜": self._create_ventilation_hood(),
                 "302通风柜": self._create_ventilation_hood(),
+                "303通风柜": self._create_ventilation_hood(),
+                "304通风柜": self._create_ventilation_hood(),
+                "305通风柜": self._create_ventilation_hood(),
+            },
+            "Second":{
+                "更衣室": self._create_clean_room(),
+                "缓冲间": self._create_clean_room(),
+                "洁净走廊": self._create_clean_room(),
+                "生物医学实验室2": self._create_clean_room(),
+                "生物医学实验室1": self._create_clean_room(),
             }
         }
 
@@ -122,21 +115,25 @@ class DataProcessor:
                     "面风速": round(int.from_bytes(data_bytes[start_index+16:start_index+18], byteorder='big') * 0.01, 2), # 面风速的单位是0.01m/s
                     "解析时间": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
                 }
-                # hood_values = {
-                #     "info": name,
-                #     "status": bool(int.from_bytes(data_bytes[start_index+0:start_index+2], byteorder='big')),
-                #     "open": bool(int.from_bytes(data_bytes[start_index+6:start_index+8], byteorder='big')),
-                #     "warning": int.from_bytes(data_bytes[start_index+10:start_index+12], byteorder='big'),
-                #     "hight": int.from_bytes(data_bytes[start_index+12:start_index+14], byteorder='big'),
-                #     "阀门开度": int.from_bytes(data_bytes[start_index+14:start_index+16], byteorder='big'),
-                #     "排风速": int.from_bytes(data_bytes[start_index+18:start_index+20], byteorder='big'),
-                #     "面风速": round(int.from_bytes(data_bytes[start_index+16:start_index+18], byteorder='big') * 0.01, 2) # 面风速的单位是0.01m/s
-                # }
+                self.data['通风柜'][name] = hood_values
                 return json.dumps(hood_values)
         except Exception as e:
             self.logger.error(f"通风柜数据解析错误: {e}\n{traceback.format_exc()}")
             return None
 
+    def get_data(self):
+        """获取当前数据"""
+        with self.data_lock:
+            return self.data
+        
+    def get_comid_data(self, com, id):
+        """获取指定串口和ID的数据"""
+        with self.data_lock:
+            name = self.info[com][str(id).zfill(2)]
+            if name in self.data['通风柜']:
+                return self.data['通风柜'][name]
+            else:
+                return None
 
     def _parse_response(self, response_hex: str):
         """解析响应数据

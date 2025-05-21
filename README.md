@@ -58,6 +58,7 @@ python back.py
 #### RestAPIClient
 
 **作用**: 与RESTful API进行交互，包括连接测试、发送数据以及通过长轮询机制获取实时更新。
+- 通过创建会话对象来管理与RESTful API的连接，之后就是基于post、put、get等方法进行数据的发送和接收。
 
 #### ModbusHelper
 
