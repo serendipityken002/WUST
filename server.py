@@ -91,6 +91,7 @@ def process_data(data_str):
     try:
         # 尝试解析JSON
         data = json.loads(data_str)
+        # print(f"解析后的数据: {data}")
         
         # 判断数据类型
         if isinstance(data, list) and len(data) > 0 and "name" in data[0]:
@@ -251,11 +252,12 @@ def test_response(request_data):
     """
     模拟串口返回数据
     """
+    print(f"串口发送的数据: {request_data}")
     return json.dumps({
         "status": "success",
-        "serial": serial,
-        "request": "01 03 00 02 00 1D 24 03",
-        "response": "01 03 3A 00 00 00 00 02 2B 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 59 D7",
+        "serial": "COM5",
+        "request": "20 03 00 10 00 1D 82 B7",
+        "response": "20 03 3A 00 00 00 00 00 00 00 00 00 00 00 08 02 33 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 34 00 00 00 00 00 00 00 00 00 00 04 70 00 00 00 00 00 00 00 00 00 00 00 00 FB 52",
         "time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
     })
 

@@ -192,10 +192,17 @@ class APIService:
             res = self.data_manager.get_comid_data(com, id)
             return jsonify(res)
         
-        @self.app.route('data', methods=['POST'])
-        def get_data():
-            """依次获取后端解析的单个数据，作为历史数据存储到数据库"""
-            pass
+        # 获取整个data数据
+        @self.app.route('/data', methods=['GET'])
+        def get_all_data():
+            """根据COM口和ID获取设备信息"""
+            res = self.data_manager.get_all_data()
+            return jsonify(res)
+
+        # @self.app.route('/get_data', methods=['POST'])
+        # def get_data():
+        #     """依次获取后端解析的单个数据，作为历史数据存储到数据库"""
+        #     pass
     
     def run(self, debug=False, use_reloader=False):
         """运行API服务器"""
@@ -249,10 +256,9 @@ class ModbusHelper:
 class DeviceManager:
     """设备管理器类，处理设备通信和数据处理"""
     
-    def __init__(self, tcp_client, api_client, config, data_processor):
+    def __init__(self, tcp_client, config, data_processor):
         """初始化设备管理器"""
         self.tcp_client = tcp_client
-        self.api_client = api_client
         self.config = config
         self.data_processor = data_processor
     
@@ -329,12 +335,12 @@ class DeviceManager:
                     
                 serial = data.get('serial')
                 response = data.get('response')
-                parsed_data = self.data_processor.test_parse(serial, response)
+                parsed_data = self.data_processor._parse_response(serial, response)
                 data_json = json.loads(parsed_data)
                 logger.info(f"解析数据: {data_json}")
                 
-                # 发送到RESTful API
-                # self.api_client.send_data(data_json)
+                # 发送到数据库的API
+                # 此处调用数据库的API即可，将data_json发送出去
                 
             except queue.Empty:
                 # 队列为空
@@ -373,7 +379,6 @@ class Application:
         # 创建设备管理器
         self.device_manager = DeviceManager(
             self.tcp_client,
-            self.api_client,
             self.config,
             self.data_processor
         )

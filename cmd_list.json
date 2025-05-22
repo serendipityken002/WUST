@@ -1,16 +1,16 @@
 [
     {
         "serial": "COM5",
-        "slave_adress": "1",
+        "slave_adress": "31",
         "function_code": "3",
-        "start_address": "2",
+        "start_address": "16",
         "quantity": "29"
     },
     {
         "serial": "COM5",
-        "slave_adress": "2",
+        "slave_adress": "32",
         "function_code": "3",
-        "start_address": "2",
+        "start_address": "16",
         "quantity": "29"
     },
     {
