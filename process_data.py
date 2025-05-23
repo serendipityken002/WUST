@@ -161,28 +161,33 @@ class DataProcessor:
         try:
             # 获取命令的第一个字节并转换为十进制
             device_id = int(response_hex.split()[0], 16)  # 将16进制字符串转换为10进制整数
+            mydict = {}
             
             # 根据设备ID选择解析方法
             if device_id == 88:  # 0x58 = 88
-                self.parse_modbus_response_ID88(response_hex)
+                mydict = self.parse_modbus_response_ID88(response_hex)
             elif 145 <= device_id <= 149:  # 0x91-0x95
                 # 计算对应的洁净室索引（0-4）
                 room_index = device_id - 145
-                self.parse_modbus_response_ID145(response_hex, room_index)
+                mydict = self.parse_modbus_response_ID145(response_hex, room_index)
             elif device_id == 2:  # 0x02，排风机数据
-                self.parse_modbus_response_ID2(response_hex)
+                mydict = self.parse_modbus_response_ID2(response_hex)
             elif 21 <= device_id <= 25:  # 0x15-0x19，2F的通风柜数据
-                self.parse_modbus_response_ventilation_hood(response_hex, "2F", device_id - 21)
+                mydict = self.parse_modbus_response_ventilation_hood(response_hex, "2F", device_id - 21)
             elif 31 <= device_id <= 37:  # 0x1F-0x25，3F的通风柜数据
-                self.parse_modbus_response_ventilation_hood(response_hex, "3F", device_id - 31)
+                mydict = self.parse_modbus_response_ventilation_hood(response_hex, "3F", device_id - 31)
             else:
                 self.logger.warning(f"未知的设备ID: {hex(device_id)}")
-            logger.info(f"解析: {device_id}")
-            return json.dumps(self.data)
+            # logger.info(f"解析: {device_id}")
+            mydict["portname"] = port_name
+            mydict["设备ID"] = device_id
+            mydict["解析时间"] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+            mydict["原始数据"] = response_hex
+            return json.dumps(mydict)
             
         except Exception as e:
             self.logger.error(f"数据解析错误: {e}\n{traceback.format_exc()}")
-            return json.dumps(self.data)  # 即使发生错误也返回当前数据
+            return json.dumps(mydict)  # 即使发生错误也返回当前数据
 
     def parse_modbus_response_ID88(self, response_hex: str) -> dict:
         """解析Modbus响应数据，提取洁净室压差值"""
@@ -213,7 +218,7 @@ class DataProcessor:
                     # logger.info(f"data_bytes: {pressure}")
                     # logger.info({room: self.data["2F"]["Second"][room]["压差"], "pressure": pressure})
             
-            return {"message": "压差数据更新成功"}
+            return pressure_updates
 
         except Exception as e:
             logger.error(f"Modbus数据解析错误: {e}")
@@ -249,7 +254,10 @@ class DataProcessor:
                     self.data["2F"]["Second"][room]["温度"]["value"] = temp_value
                 
                 print(f"更新 {room} 数据: 温度={temp_value}℃, 湿度={humid_value}%")
-                return {"message": f"{room} 温湿度数据更新成功"}
+                return {
+                    "湿度": humid_value,
+                    "温度": temp_value
+                }
             else:
                 return {"message": "数据长度不足"}
 
@@ -285,7 +293,7 @@ class DataProcessor:
                     for key, value in fan_values.items():
                         self.data["2F"]["First"]["排风机"][key]["value"] = value
                 
-                return {"message": "排风机数据更新成功"}
+                return fan_values
             else:
                 return {"message": "数据长度不足"}
 
@@ -347,7 +355,7 @@ class DataProcessor:
                             hood_data[key]["value"] = value
                         self.data[floor][hood_key] = hood_data
                 
-                return {"message": f"通风柜{hood_index + 1}数据更新成功"}
+                return hood_values
             else:
                 return {"message": "数据长度不足"}
 

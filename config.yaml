@@ -1,14 +1,7 @@
-tcp_server:
-  buffer_size: 4096
-  host: 192.168.196.206
-  max_bytes_per_request: 1024
-  max_connections: 5
-  port: 8889
-
 # 服务器配置
 server:
   host: 127.0.0.1
-  port: 8888
+  port: 7777
 
 # RESTful API配置
 api:

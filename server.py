@@ -3,6 +3,10 @@ import threading
 import time
 import json
 import serial
+import os
+import sys
+import yaml
+
 from Logger import logger
 import serial.tools.list_ports
 
@@ -261,16 +265,41 @@ def test_response(request_data):
         "time": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
     })
 
+def load_config():
+    """加载配置文件"""
+    # 首先尝试读取外部配置文件
+    external_config = 'config.yaml'  # 与可执行文件同目录的配置文件
+    if os.path.exists(external_config):
+        with open(external_config, 'r', encoding='utf-8') as file:
+            return yaml.safe_load(file)
+    
+    # 如果外部配置不存在，则使用打包的配置
+    if getattr(sys, 'frozen', False):
+        # 运行在打包环境
+        base_path = sys._MEIPASS
+    else:
+        # 运行在开发环境
+        base_path = os.path.dirname(__file__)
+    
+    config_path = os.path.join(base_path, 'config.yaml')
+    with open(config_path, 'r', encoding='utf-8') as file:
+        return yaml.safe_load(file)
+
 def start_serve():
     # 创建TCP套接字
+    config = load_config()
+    server_config = config.get('server', {})
+    host = server_config.get('host', '127.0.0.1')
+    port = server_config.get('port', 8888)
+    
     _server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     _server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     
-    _server_socket.bind(('0.0.0.0', 8888))
+    _server_socket.bind((host, port))
     _server_socket.listen(5)
     _server_socket.settimeout(1.0)
 
-    print("服务器已启动，监听端口 8888...")
+    print(f"服务器已启动，监听 {host} 端口 {port}...")
     
     while True:
         try:

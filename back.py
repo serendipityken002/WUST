@@ -393,10 +393,26 @@ class Application:
             try:
                 # 初始化串口
                 self.device_manager.init_serial()
+
+                # 优先从可执行文件目录加载命令列表
+                cmd_list_path = 'cmd_list.json'  # 默认当前目录
                 
+                # 如果是打包环境，检查可执行文件所在目录
+                if getattr(sys, 'frozen', False):
+                    exe_dir = os.path.dirname(sys.executable)
+                    external_cmd_list = os.path.join(exe_dir, 'cmd_list.json')
+                    if os.path.exists(external_cmd_list):
+                        cmd_list_path = external_cmd_list
+                        logger.info(f"使用外部命令列表: {external_cmd_list}")
+                    else:
+                        # 使用打包内的命令列表
+                        cmd_list_path = os.path.join(sys._MEIPASS, 'cmd_list.json')
+                        logger.info(f"使用内部命令列表: {cmd_list_path}")
+
                 # 加载命令列表
-                with open('cmd_list.json', 'r', encoding='utf-8') as file:
+                with open(cmd_list_path, 'r', encoding='utf-8') as file:
                     json_data_list = json.load(file)
+                    logger.info(f"成功加载命令列表，包含 {len(json_data_list)} 条命令")
                     
                 # 主循环
                 while self.tcp_client.is_connected_status():
