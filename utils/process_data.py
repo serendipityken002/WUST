@@ -1,8 +1,11 @@
+import os
+import sys
+
+# 添加上级目录到路径
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import time
-from Logger import logger
-import random
+from utils.Logger import logger
 import traceback
-import pprint
 import json
 import threading
 
@@ -90,44 +93,11 @@ class DataProcessor:
         self.data = self.dataGen.data
         self.data_lock = threading.Lock()
 
-    # def test_parse(self, serial, response):
-    #     try:
-    #         data_bytes = bytes.fromhex(response.replace(" ", ""))
-    #         id = int(data_bytes[0])
-    #         name = self.info[serial][str(id).zfill(2)]
-    #         start_index = 3  # 跳过Modbus协议头
-            
-    #         if len(data_bytes) >= start_index + 52:  # 确保有足够的数据
-    #             hood_values = {
-    #                 "信息": name,
-    #                 "状态": bool(int.from_bytes(data_bytes[start_index+0:start_index+2], byteorder='big')),
-    #                 "开度": bool(int.from_bytes(data_bytes[start_index+6:start_index+8], byteorder='big')),
-    #                 "警告": int.from_bytes(data_bytes[start_index+10:start_index+12], byteorder='big'),
-    #                 "高度": int.from_bytes(data_bytes[start_index+12:start_index+14], byteorder='big'),
-    #                 "阀门开度": int.from_bytes(data_bytes[start_index+14:start_index+16], byteorder='big'),
-    #                 "排风速": int.from_bytes(data_bytes[start_index+18:start_index+20], byteorder='big'),
-    #                 "面风速": round(int.from_bytes(data_bytes[start_index+16:start_index+18], byteorder='big') * 0.01, 2), # 面风速的单位是0.01m/s
-    #                 "解析时间": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-    #             }
-    #             self.data['通风柜'][name] = hood_values
-    #             return json.dumps(hood_values)
-    #     except Exception as e:
-    #         self.logger.error(f"通风柜数据解析错误: {e}\n{traceback.format_exc()}")
-    #         return None
-        
-    # def get_comid_data(self, com, id):
-    #     """获取指定串口和ID的数据"""
-    #     with self.data_lock:
-    #         name = self.info[com][str(id).zfill(2)]
-    #         if name in self.data['通风柜']:
-    #             return json.dumps(self.data['通风柜'][name])
-    #         else:
-    #             return None
-
-    def get_comid_data(self, com, device_id):
+    def get_comid_data(self, com, device_id_str):
         """获取指定串口和ID的数据"""
         with self.data_lock:
             # 根据设备ID选择解析方法
+            device_id = int(device_id_str)  # 将16进制字符串转换为10进制整数
             if device_id == 88:  
                 # 洁净走廊
                 return json.dumps(self.data["2F"]["Second"]["洁净走廊"])
@@ -145,6 +115,7 @@ class DataProcessor:
                 return json.dumps(self.data["3F"])
             else:
                 self.logger.warning(f"未知的设备ID: {hex(device_id)}")
+                return json.dumps({"message": "未知的设备ID"})
 
     def get_all_data(self):
         """获取当前数据"""

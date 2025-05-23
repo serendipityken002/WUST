@@ -7,7 +7,9 @@ import os
 import sys
 import yaml
 
-from Logger import logger
+# 添加上级目录到路径
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from utils.Logger import logger
 import serial.tools.list_ports
 
 class SerialManager:
@@ -103,8 +105,8 @@ def process_data(data_str):
             return process_serial_ports(data)
         elif isinstance(data, dict) and "serial" in data and "request" in data:
             # 是Modbus请求
-            # return process_modbus_request(data)
-            return test_response(data)
+            return process_modbus_request(data)
+            # return test_response(data)
         else:
             # 未知数据格式
             return json.dumps({
@@ -268,7 +270,7 @@ def test_response(request_data):
 def load_config():
     """加载配置文件"""
     # 首先尝试读取外部配置文件
-    external_config = 'config.yaml'  # 与可执行文件同目录的配置文件
+    external_config = 'config/config.yaml'
     if os.path.exists(external_config):
         with open(external_config, 'r', encoding='utf-8') as file:
             return yaml.safe_load(file)
@@ -281,7 +283,7 @@ def load_config():
         # 运行在开发环境
         base_path = os.path.dirname(__file__)
     
-    config_path = os.path.join(base_path, 'config.yaml')
+    config_path = os.path.join(base_path, 'config/config.yaml')
     with open(config_path, 'r', encoding='utf-8') as file:
         return yaml.safe_load(file)
 

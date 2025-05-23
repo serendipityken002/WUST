@@ -9,12 +9,16 @@ import json
 import requests
 from urllib3.exceptions import InsecureRequestWarning
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 # 禁用不安全请求警告
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-from Logger import logger
-from process_data import DataProcessor
+# 添加上级目录到路径
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from utils.Logger import logger
+from utils.process_data import DataProcessor
+
 
 class ConfigLoader:
     """配置加载器类"""
@@ -23,7 +27,7 @@ class ConfigLoader:
     def load_config():
         """加载配置文件"""
         # 首先尝试读取外部配置文件
-        external_config = 'config.yaml'  # 与可执行文件同目录的配置文件
+        external_config = 'config/config.yaml'  # 与可执行文件同目录的配置文件
         if os.path.exists(external_config):
             with open(external_config, 'r', encoding='utf-8') as file:
                 return yaml.safe_load(file)
@@ -36,7 +40,7 @@ class ConfigLoader:
             # 运行在开发环境
             base_path = os.path.dirname(__file__)
         
-        config_path = os.path.join(base_path, 'config.yaml')
+        config_path = os.path.join(base_path, 'config/config.yaml')
         with open(config_path, 'r', encoding='utf-8') as file:
             return yaml.safe_load(file)
 
@@ -168,6 +172,7 @@ class APIService:
             data_manager: 数据管理器实例
         """
         self.app = Flask(__name__)
+        CORS(self.app)
         self.host = host
         self.port = port
         self.data_manager = data_manager
@@ -189,7 +194,8 @@ class APIService:
         @self.app.route('/com/<com>/id/<id>', methods=['GET'])
         def get_device_info(com, id):
             """根据COM口和ID获取设备信息"""
-            res = self.data_manager.get_comid_data(com, id)
+            res_json = self.data_manager.get_comid_data(com, id)
+            res = json.loads(res_json)
             return jsonify(res)
         
         # 获取整个data数据
@@ -395,18 +401,18 @@ class Application:
                 self.device_manager.init_serial()
 
                 # 优先从可执行文件目录加载命令列表
-                cmd_list_path = 'cmd_list.json'  # 默认当前目录
+                cmd_list_path = 'config/cmd_list.json'
                 
                 # 如果是打包环境，检查可执行文件所在目录
                 if getattr(sys, 'frozen', False):
                     exe_dir = os.path.dirname(sys.executable)
-                    external_cmd_list = os.path.join(exe_dir, 'cmd_list.json')
+                    external_cmd_list = os.path.join(exe_dir, 'config/cmd_list.json')
                     if os.path.exists(external_cmd_list):
                         cmd_list_path = external_cmd_list
                         logger.info(f"使用外部命令列表: {external_cmd_list}")
                     else:
                         # 使用打包内的命令列表
-                        cmd_list_path = os.path.join(sys._MEIPASS, 'cmd_list.json')
+                        cmd_list_path = os.path.join(sys._MEIPASS, 'config/cmd_list.json')
                         logger.info(f"使用内部命令列表: {cmd_list_path}")
 
                 # 加载命令列表

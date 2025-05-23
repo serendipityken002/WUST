@@ -1,0 +1,156 @@
+[
+    {
+        "serial": "COM80",
+        "slave_adress": "88",
+        "function_code": "3",
+        "start_address": "0",
+        "quantity": "10"
+    },
+    {
+        "serial": "COM2",
+        "slave_adress": "88",
+        "function_code": "3",
+        "start_address": "0",
+        "quantity": "10"
+    },
+    {
+        "serial": "COM2",
+        "slave_adress": "145",
+        "function_code": "3",
+        "start_address": "0",
+        "quantity": "10"
+    },
+    {
+        "serial": "COM44",
+        "slave_adress": "2",
+        "function_code": "3",
+        "start_address": "0",
+        "quantity": "18"
+    },
+    {
+        "serial": "COM45",
+        "slave_adress": "31",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM45",
+        "slave_adress": "32",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM45",
+        "slave_adress": "33",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM45",
+        "slave_adress": "34",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM45",
+        "slave_adress": "35",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM45",
+        "slave_adress": "36",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM45",
+        "slave_adress": "37",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM50",
+        "slave_adress": "145",
+        "function_code": "3",
+        "start_address": "0",
+        "quantity": "2"
+    },
+    {
+        "serial": "COM50",
+        "slave_adress": "146",
+        "function_code": "3",
+        "start_address": "0",
+        "quantity": "2"
+    },
+    {
+        "serial": "COM50",
+        "slave_adress": "147",
+        "function_code": "3",
+        "start_address": "0",
+        "quantity": "2"
+    },
+    {
+        "serial": "COM50",
+        "slave_adress": "148",
+        "function_code": "3",
+        "start_address": "0",
+        "quantity": "2"
+    },
+    {
+        "serial": "COM50",
+        "slave_adress": "149",
+        "function_code": "3",
+        "start_address": "0",
+        "quantity": "2"
+    },
+    {
+        "serial": "COM50",
+        "slave_adress": "88",
+        "function_code": "3",
+        "start_address": "0",
+        "quantity": "5"
+    },
+    {
+        "serial": "COM47",
+        "slave_adress": "21",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM47",
+        "slave_adress": "22",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM47",
+        "slave_adress": "23",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM47",
+        "slave_adress": "24",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    },
+    {
+        "serial": "COM47",
+        "slave_adress": "25",
+        "function_code": "3",
+        "start_address": "16",
+        "quantity": "29"
+    }
+]

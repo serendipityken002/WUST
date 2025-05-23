@@ -1,0 +1,50 @@
+# 服务器配置
+server:
+  host: 127.0.0.1
+  port: 9876
+
+# RESTful API配置
+api:
+  base_url: http://127.0.0.1:6000/api
+  host: 127.0.0.1
+  port: 8899
+  timeout: 10
+  poll_interval: 5
+  long_poll_timeout: 30
+
+# 串口配置
+serial_ports:
+  - name: COM 44
+    description: WCH USB-SERIAL Ch A
+    baudrate: 9600
+    timeout: 1
+    db_id: 1
+  - name: COM 2
+    description: WCH USB-SERIAL Ch B
+    baudrate: 9600
+    timeout: 1
+    db_id: 1
+  - name: COM 45
+    description: WCH USB-SERIAL Ch C
+    baudrate: 9600
+    timeout: 1
+    db_id: 2
+  - name: COM 50
+    description: WCH USB-SERIAL Ch D
+    baudrate: 9600
+    timeout: 1
+    db_id: 1
+  - name: COM 47
+    description: WCH USB-SERIAL Ch E
+    baudrate: 9600
+    timeout: 1
+    db_id: 2
+  - name: COM 80
+    description: ELTIMA Virtual Serial Port
+    baudrate: 9600
+    timeout: 1
+    db_id: 2
+
+# Modbus配置
+modbus:
+  request_delay: 0.5
